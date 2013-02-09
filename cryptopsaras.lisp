@@ -25,6 +25,9 @@
 (defun read-id (stream)
 		(read-integer stream `(unsigned-byte ,*int-size*)))
 
+(defun read-action-type (stream)
+		(read-integer stream `(unsigned-byte ,*actiontype-size*)))
+
 (defun read-value (stream)
 	(read-float stream 'single-float))
 
@@ -35,18 +38,29 @@
 			(read-sequence buf stream)
 			(reduce (lambda (tot i) (+ i (ash tot 8))) buf :initial-value 0)))
 
+
 (defun read-cstring (stream)
 	(let* ((size (read-size stream)) 
 				 (buf (mk-buffer (* size *B-char-size*))))
 		(read-sequence buf stream)
-		(print buf)
+;		(print buf)
 		buf
 		))
 
 (defun read-action (stream)
 	(cons 
-	 (read-cstring stream)
-	 (read-id stream)))
+	 (map 'string #'code-char (read-cstring stream))
+	 (read-action-type stream)))
+
+(defun read-actions (stream)
+	(let ((size (read-size stream))) 
+				;(print size)
+				(repeat-call (lambda () (read-action stream)) size)
+				))
+
+(defun read-card (stream)
+	(cons (code-char (read-byte stream)) 
+				(code-char (read-byte stream))))
 
 ; Read a hand from a stream
 (defun read-hand (stream)
@@ -58,14 +72,20 @@
 			; big blind
 			(print (read-value stream))
 			; actions preflop
-			(let ((preflop-size (read-size stream))) 
-				(print preflop-size)
-				(print (repeat-call (lambda () (read-action stream)) preflop-size)) 
-				)
+			(print (read-actions stream))
 			; actions flop
-			;(let ((flop-size (read-size stream)))
-			;	(print flop-size)
-			;	(print (repeat-call (lambda () (read-action stream)) flop-size)) )
+			(print (read-actions stream))
+			; cards flop
+			(print (repeat-call (lambda() (read-card stream)) 3))
+			; actions turn
+			(print (read-actions stream))
+			; cards turn
+			(print (repeat-call (lambda() (read-card stream)) 1))
+			; actions river
+			(print (read-actions stream))
+			; cards river
+			(print (repeat-call (lambda() (read-card stream)) 1))
+			
 			))
 
 ; Read a file, call read-hand until we reach the end of the file ...
