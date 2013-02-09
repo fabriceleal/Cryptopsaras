@@ -20,18 +20,18 @@
 ;	(cond
 ;	 ((= times 1) (cons (funcall fn) nil))
 ;	 ((> times 1) (cons (funcall fn) (repeat-call fn (- times 1)))) )
-	
-	(labels ((repeat-call-aux (times acc)														
-														(cond 
-														 
+
+	(labels ((repeat-call-aux (times acc)
+														(cond
+
 														 ; Building lists in inverse order
 														 ; and then reverse them is better
-														 ; than appending 
+														 ; than appending
 														 ; http://stackoverflow.com/questions/6439972/what-is-the-cons-to-add-an-item-to-the-end-of-the-list
 														 ((= times 0) (nreverse acc))
-														 
+
 														 ((>= times 1)
-															(let* ((r (funcall fn)) 
+															(let* ((r (funcall fn))
 																		 (acc2 (cons r acc))
 																		 (times2 (- times 1)) )
 																(repeat-call-aux times2 acc2)
@@ -39,9 +39,7 @@
 
 														 (t (error "dont give me negative times!"))
 														 )))
-
 		(repeat-call-aux times '())
-		
 		) )
 
 (compile 'repeat-call)
@@ -56,7 +54,7 @@
 
 (defun read-action-type ()
 		(let ((value (read-integer *stream* `(unsigned-byte ,*actiontype-size*))))
-			(cond 
+			(cond
 			 ((= value 0) 'fold)
 			 ((= value 1) 'call)
 			 ((= value 2) 'check)
@@ -70,10 +68,10 @@
 (defun read-value ()
 	(read-float *stream* 'single-float))
 
-;; sizes are single chars. 
+;; sizes are single chars.
 ;; Implicit maximum of 256 chars for strings and arrays
 (defun read-size ()
-	(let ((buf (mk-buffer *B-char-size*))) 
+	(let ((buf (mk-buffer *B-char-size*)))
 			(read-sequence buf *stream*)
 			(reduce (lambda (tot i) (+ i (ash tot 8))) buf :initial-value 0)))
 
@@ -85,7 +83,7 @@
 ; C String
 
 (defun read-cstring ()
-	(let* ((size (read-size)) 
+	(let* ((size (read-size))
 				 (buf (mk-buffer (* size *B-char-size*))))
 		(read-sequence buf *stream*)
 		(map 'string #'code-char buf)
@@ -94,12 +92,12 @@
 ;; Action
 
 (defun read-action ()
-	(cons 
+	(cons
 	 (read-cstring)
 	 (read-action-type)))
 
 (defun read-actions ()
-	(let ((size (read-size))) 
+	(let ((size (read-size)))
 				;(print size)
 				(repeat-call #'read-action size)
 				))
@@ -107,7 +105,7 @@
 ;; Card
 
 (defun read-card ()
-	(cons (code-char (read-byte *stream*)) 
+	(cons (code-char (read-byte *stream*))
 				(code-char (read-byte *stream*))))
 
 (defun read-cards-n (n)
@@ -116,16 +114,16 @@
 ;; Player
 
 (defun read-player ()
-	(list (read-cstring) 
+	(list (read-cstring)
 				(read-value)
 				(read-bool)
 				(repeat-call #'read-card 2)))
 
 (defun read-players ()
-	(let ((size (read-size))) 
+	(let ((size (read-size)))
 		(repeat-call #'read-player size)))
 
-(defun make-hand (id sb bb pf-actions f-actions f-cards 
+(defun make-hand (id sb bb pf-actions f-actions f-cards
 										 t-actions t-cards r-actions r-cards
 										 players)
 	`((id . ,id)
@@ -141,7 +139,7 @@
 
 ; Read a hand from a stream
 (defun read-hand (callback)
-	(funcall callback (make-hand 					 
+	(funcall callback (make-hand
 						    ; hand-id
 										 (read-id)
            			; small blind
@@ -179,21 +177,21 @@
 ; Read a file, call read-hand until we reach the end of the file ...
 ; TODO Make this a lazy list?
 (defun read-file (filename)
-	(with-open-file (*stream* filename 
-													:direction :input 
+	(with-open-file (*stream* filename
+													:direction :input
 													:element-type '(unsigned-byte 8))
-									;(print (read-hand)) 
+									;(print (read-hand))
 									;(print (call-until-eof #'read-hand))))
 									(let ((len (file-length *stream*)))
 										  ; 1.a
 										  ; Recursive with tail-recursion
-										  ; to actually work we need to compile the 
+										  ; to actually work we need to compile the
 										  ; read-file function. Check comment 1.b
-											(labels ((read-all () 
+											(labels ((read-all ()
 																				 ;(print len)
 																				 ;(print (file-position *stream*))
 																				 (if (< (file-position *stream*) len)
-																						 (progn 
+																						 (progn
 																							 (read-hand #'parse-hand)
 																							 (read-all))
 																					 nil)))
@@ -202,12 +200,12 @@
 										)))
 
 ; 1.b
-; Compile read-file so we can enjoy 
+; Compile read-file so we can enjoy
 ; tail-recursion optimization
 ; Check comment 1.a
 (compile 'read-file)
 
-(defun main() 
+(defun main()
 	(read-file "in/0.phb"))
 
 (main)
