@@ -123,19 +123,58 @@
 	(let ((size (read-size)))
 		(repeat-call #'read-player size)))
 
+; hash:
+;   id - int
+;   sb - float
+;   bb - float
+;   preflop - alist('cards -> nil, 'actions -> ...)
+;   flop - alist('cards -> nil, 'actions -> ...)
+;   turn - alist('cards -> ..., 'actions -> ...)
+;   river - alist('cards -> ..., 'actions -> ...)
+;   players - hash:
+;               <name> - stack, isbutton, cards
+;               ...
 (defun make-hand (id sb bb pf-actions f-actions f-cards
 										 t-actions t-cards r-actions r-cards
 										 players)
-	`((id . ,id)
-		(sb . ,sb)
-		(bb . ,bb)
-		(preflop . ((cards . nil) (actions . ,pf-actions)))
-		(flop . ((cards . ,f-cards) (actions . ,f-actions)))
-		(turn . ((cards . ,t-cards) (actions . ,t-actions)))
-		(river . ((cards . ,r-cards) (actions . ,r-actions)))
-		(players . ,players)
+	(let ((h (make-hash-table)))
+		(setf (gethash 'id h) id)
+		(setf (gethash 'sb h) sb)
+		(setf (gethash 'bb h) bb)
+		(setf (gethash 'preflop h)
+					; a-list here, for now...
+					`((cards . nil) (actions . ,pf-actions)) )
+		(setf (gethash 'flop h) 
+					; a-list here, for now...
+					`((cards . ,f-cards) (actions . ,f-actions)) )
+		(setf (gethash 'turn h) 
+					; a-list here, for now...
+					`((cards . ,t-cards) (actions . ,t-actions)) )
+		(setf (gethash 'river h) 
+					; a-list here, for now...
+					`((cards . ,r-cards) (actions . ,r-actions)) )
+		(setf (gethash 'players h) 
+					; create hash of hashes from the lists
+					; player-name (car of the list) is the key
+					(reduce (lambda (tot x)
+										(setf (gethash (car x) tot) 
+													; Create another hash, with the player's data
+													(let ((data (cdr x)) 
+																(h-data (make-hash-table)))
+														(setf (gethash 'stack h-data) (car data))
+														(setf (gethash 'is-button h-data) (cadr data))
+														(setf (gethash 'cards h-data) (caddr data))
+														h-data
+														))
+										tot)
+									players
+									:initial-value (make-hash-table))
+					)
+		h	
 		)
 	)
+
+(compile 'make-hand)
 
 ; Read a hand from a stream
 (defun read-hand (callback)
@@ -206,6 +245,6 @@
 (compile 'read-file)
 
 (defun main()
-	(read-file "in/0.phb"))
+	(read-file "in/000.phb"))
 
 (main)
