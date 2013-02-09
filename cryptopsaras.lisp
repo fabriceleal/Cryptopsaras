@@ -38,18 +38,16 @@
 			(read-sequence buf stream)
 			(reduce (lambda (tot i) (+ i (ash tot 8))) buf :initial-value 0)))
 
-
 (defun read-cstring (stream)
 	(let* ((size (read-size stream)) 
 				 (buf (mk-buffer (* size *B-char-size*))))
 		(read-sequence buf stream)
-;		(print buf)
-		buf
+		(map 'string #'code-char buf)
 		))
 
 (defun read-action (stream)
 	(cons 
-	 (map 'string #'code-char (read-cstring stream))
+	 (read-cstring stream)
 	 (read-action-type stream)))
 
 (defun read-actions (stream)
@@ -61,6 +59,16 @@
 (defun read-card (stream)
 	(cons (code-char (read-byte stream)) 
 				(code-char (read-byte stream))))
+
+(defun read-player (stream)
+	(list (read-cstring stream) 
+				(read-value stream)
+				(read-size stream)
+				(repeat-call (lambda() (read-card stream)) 2)))
+
+(defun read-players (stream)
+	(let ((size (read-size stream))) 
+		(repeat-call (lambda () (read-player stream)) size)))
 
 ; Read a hand from a stream
 (defun read-hand (stream)
@@ -85,7 +93,8 @@
 			(print (read-actions stream))
 			; cards river
 			(print (repeat-call (lambda() (read-card stream)) 1))
-			
+			; players
+			(print (read-players stream))
 			))
 
 ; Read a file, call read-hand until we reach the end of the file ...
