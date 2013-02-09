@@ -24,7 +24,11 @@
 	(labels ((repeat-call-aux (times acc)														
 														(cond 
 														 
-														 ((= times 0) acc)
+														 ; Building lists in inverse order
+														 ; and then reverse them is better
+														 ; than appending 
+														 ; http://stackoverflow.com/questions/6439972/what-is-the-cons-to-add-an-item-to-the-end-of-the-list
+														 ((= times 0) (nreverse acc))
 														 
 														 ((>= times 1)
 															(let* ((r (funcall fn)) 
@@ -51,7 +55,17 @@
 		(read-integer *stream* `(unsigned-byte ,*int-size*)))
 
 (defun read-action-type ()
-		(read-integer *stream* `(unsigned-byte ,*actiontype-size*)))
+		(let ((value (read-integer *stream* `(unsigned-byte ,*actiontype-size*))))
+			(cond 
+			 ((= value 0) 'fold)
+			 ((= value 1) 'call)
+			 ((= value 2) 'check)
+			 ((= value 3) 'raise)
+			 ((= value 4) 'bet)
+			 ((= value 5) 'small-blind)
+			 ((= value 6) 'big-blind)
+			 (t (error "Unexpected action type"))
+			 )))
 
 (defun read-value ()
 	(read-float *stream* 'single-float))
@@ -62,6 +76,11 @@
 	(let ((buf (mk-buffer *B-char-size*))) 
 			(read-sequence buf *stream*)
 			(reduce (lambda (tot i) (+ i (ash tot 8))) buf :initial-value 0)))
+
+(defun read-bool ()
+	(if (= (read-size) 0)
+			nil
+		t))
 
 ; C String
 
@@ -99,43 +118,63 @@
 (defun read-player ()
 	(list (read-cstring) 
 				(read-value)
-				(read-size)
+				(read-bool)
 				(repeat-call #'read-card 2)))
 
 (defun read-players ()
 	(let ((size (read-size))) 
 		(repeat-call #'read-player size)))
 
+(defun make-hand (id sb bb pf-actions f-actions f-cards 
+										 t-actions t-cards r-actions r-cards
+										 players)
+	`((id . ,id)
+		(sb . ,sb)
+		(bb . ,bb)
+		(preflop . ((cards . nil) (actions . ,pf-actions)))
+		(flop . ((cards . ,f-cards) (actions . ,f-actions)))
+		(turn . ((cards . ,t-cards) (actions . ,t-actions)))
+		(river . ((cards . ,r-cards) (actions . ,r-actions)))
+		(players . ,players)
+		)
+	)
+
 ; Read a hand from a stream
 (defun read-hand (callback)
-	(funcall callback
-					 (list
+	(funcall callback (make-hand 					 
 						    ; hand-id
-						     (read-id)
+										 (read-id)
            			; small blind
-								 (read-value)
+										 (read-value)
            			; big blind
-								 (read-value)
+										 (read-value)
            			; actions preflop
-								 (read-actions)
+										 (read-actions)
            			; actions flop
-								 (read-actions)
+										 (read-actions)
            			; cards flop
-								 (read-cards-n 3)
+										 (read-cards-n 3)
            			; actions turn
-								 (read-actions)
+										 (read-actions)
            			; cards turn
-								 (read-cards-n 1)
+										 (read-cards-n 1)
            			; actions river
-								 (read-actions)
+										 (read-actions)
 			          ; cards river
-								 (read-cards-n 1)
+										 (read-cards-n 1)
 			          ; players
-								 (read-players))
-					 ))
+										 (read-players) ) ) )
 
 (defun parse-hand (hand)
-	(print '(a hand !)))
+	;(print
+	 ;(cdr (assoc 'flop hand))
+	 ;)
+
+	;(print
+	 ;(cdr (assoc 'cards (cdr (assoc 'flop hand))))
+	 ;)
+	(print hand)
+	)
 
 ; Read a file, call read-hand until we reach the end of the file ...
 ; TODO Make this a lazy list?
@@ -169,6 +208,6 @@
 (compile 'read-file)
 
 (defun main() 
-	(read-file "in/000.phb"))
+	(read-file "in/0.phb"))
 
 (main)
