@@ -11,6 +11,9 @@
 (defparameter *actiontype-size* (* 8 4))
 (defparameter *card-size* (* *char-size* 2))
 
+; This is bad
+(defvar *stream* nil)
+
 ; TODO endianess ?
 
 (defun repeat-call (fn times)
@@ -18,96 +21,143 @@
 	 ((= times 1) (cons (funcall fn) nil))
 	 ((> times 1) (cons (funcall fn) (repeat-call fn (- times 1)))) ))
 
+ 
+(defun call-until-eof (fn)
+	(let ((len (file-length *stream*))) 
+		(labels ((call-until-eof-aux (acc) 
+																 (let ((pos (file-position *stream*)))
+																	 (if (< pos len)
+																			 (let ((acc2 (funcall fn))) 
+																				 (print (cons pos len))
+																				 (call-until-eof-aux acc))
+																		 acc)
+																	 )))
+		
+			(call-until-eof-aux '())
+			)))
+
 (defun mk-buffer (size)
 	(make-array size :element-type '(unsigned-byte 8)))
 
+; Scalars
 
-(defun read-id (stream)
-		(read-integer stream `(unsigned-byte ,*int-size*)))
+(defun read-id ()
+		(read-integer *stream* `(unsigned-byte ,*int-size*)))
 
-(defun read-action-type (stream)
-		(read-integer stream `(unsigned-byte ,*actiontype-size*)))
+(defun read-action-type ()
+		(read-integer *stream* `(unsigned-byte ,*actiontype-size*)))
 
-(defun read-value (stream)
-	(read-float stream 'single-float))
+(defun read-value ()
+	(read-float *stream* 'single-float))
 
 ; sizes are single chars. 
 ; Implicit maximum of 256 chars for strings and arrays
-(defun read-size (stream)
+(defun read-size ()
 	(let ((buf (mk-buffer *B-char-size*))) 
-			(read-sequence buf stream)
+			(read-sequence buf *stream*)
 			(reduce (lambda (tot i) (+ i (ash tot 8))) buf :initial-value 0)))
 
-(defun read-cstring (stream)
-	(let* ((size (read-size stream)) 
+; C String
+
+(defun read-cstring ()
+	(let* ((size (read-size)) 
 				 (buf (mk-buffer (* size *B-char-size*))))
-		(read-sequence buf stream)
+		(read-sequence buf *stream*)
 		(map 'string #'code-char buf)
 		))
 
-(defun read-action (stream)
-	(cons 
-	 (read-cstring stream)
-	 (read-action-type stream)))
+; Action
 
-(defun read-actions (stream)
-	(let ((size (read-size stream))) 
+(defun read-action ()
+	(cons 
+	 (read-cstring)
+	 (read-action-type)))
+
+(defun read-actions ()
+	(let ((size (read-size))) 
 				;(print size)
-				(repeat-call (lambda () (read-action stream)) size)
+				(repeat-call #'read-action size)
 				))
 
-(defun read-card (stream)
-	(cons (code-char (read-byte stream)) 
-				(code-char (read-byte stream))))
+; Card
 
-(defun read-cards-n (stream n)
-	(repeat-call (lambda() (read-card stream)) n))
+(defun read-card ()
+	(cons (code-char (read-byte *stream*)) 
+				(code-char (read-byte *stream*))))
 
-(defun read-player (stream)
-	(list (read-cstring stream) 
-				(read-value stream)
-				(read-size stream)
-				(repeat-call (lambda() (read-card stream)) 2)))
+(defun read-cards-n (n)
+	(repeat-call #'read-card n))
 
-(defun read-players (stream)
-	(let ((size (read-size stream))) 
-		(repeat-call (lambda () (read-player stream)) size)))
+; Player
+
+(defun read-player ()
+	(list (read-cstring) 
+				(read-value)
+				(read-size)
+				(repeat-call #'read-card 2)))
+
+(defun read-players ()
+	(let ((size (read-size))) 
+		(repeat-call #'read-player size)))
 
 ; Read a hand from a stream
-(defun read-hand (stream)
-	(let ((id (mk-buffer *int-size*)))
+(defun read-hand ()
       ; hand-id
-			(print (read-id stream))
+			(list (read-id)
 			; small blind
-			(print (read-value stream))
+						(read-value)
 			; big blind
-			(print (read-value stream))
+						(read-value)
 			; actions preflop
-			(print (read-actions stream))
+						(read-actions)
 			; actions flop
-			(print (read-actions stream))
+						(read-actions)
 			; cards flop
-			(print (read-cards-n stream 3))
+			       (read-cards-n 3)
 			; actions turn
-			(print (read-actions stream))
+						 (read-actions)
 			; cards turn
-			(print (read-cards-n stream 1))
+			       (read-cards-n 1)
 			; actions river
-			(print (read-actions stream))
+			       (read-actions)
 			; cards river
-			(print (read-cards-n stream 1))
+			       (read-cards-n 1)
 			; players
-			(print (read-players stream))
-			))
+			       (read-players))
+			)
 
 ; Read a file, call read-hand until we reach the end of the file ...
 ; TODO Make this a lazy list?
 (defun read-file (filename)
-	(with-open-file (stream filename :direction :input :element-type '(unsigned-byte 8))
-									(read-hand stream)))
+	(with-open-file (*stream* filename 
+													:direction :input 
+													:element-type '(unsigned-byte 8))
+									;(print (read-hand)) 
+									;(print (call-until-eof #'read-hand))))
+									(let ((len (file-length *stream*)))
+										  ; 1.a
+										  ; Recursive with tail-recursion
+										  ; to actually work we need to compile the 
+										  ; read-file function. Check comment 1.b
+											(labels ((read-all () 
+																				 ;(print len)
+																				 ;(print (file-position *stream*))
+																				 (if (< (file-position *stream*) len)
+																						 (progn 
+																							 (read-hand)
+																							 (read-all))
+																					 nil)))
+												(read-all)
+												)
+										)))
+
+; 1.b
+; Compile read-file so we can enjoy 
+; tail-recursion optimization
+; Check comment 1.a
+(compile 'read-file)
 
 (defun main() 
-	(read-file "in/0.phb"))
-
+	(read-file "in/000.phb"))
 
 (main)
