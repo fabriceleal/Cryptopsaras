@@ -17,29 +17,35 @@
 ; TODO endianess ?
 
 (defun repeat-call (fn times)
-	(cond
-	 ((= times 1) (cons (funcall fn) nil))
-	 ((> times 1) (cons (funcall fn) (repeat-call fn (- times 1)))) ))
+;	(cond
+;	 ((= times 1) (cons (funcall fn) nil))
+;	 ((> times 1) (cons (funcall fn) (repeat-call fn (- times 1)))) )
+	
+	(labels ((repeat-call-aux (times acc)														
+														(cond 
+														 
+														 ((= times 0) acc)
+														 
+														 ((>= times 1)
+															(let* ((r (funcall fn)) 
+																		 (acc2 (cons r acc))
+																		 (times2 (- times 1)) )
+																(repeat-call-aux times2 acc2)
+																))
 
- 
-(defun call-until-eof (fn)
-	(let ((len (file-length *stream*))) 
-		(labels ((call-until-eof-aux (acc) 
-																 (let ((pos (file-position *stream*)))
-																	 (if (< pos len)
-																			 (let ((acc2 (funcall fn))) 
-																				 (print (cons pos len))
-																				 (call-until-eof-aux acc))
-																		 acc)
-																	 )))
+														 (t (error "dont give me negative times!"))
+														 )))
+
+		(repeat-call-aux times '())
 		
-			(call-until-eof-aux '())
-			)))
+		) )
+
+(compile 'repeat-call)
 
 (defun mk-buffer (size)
 	(make-array size :element-type '(unsigned-byte 8)))
 
-; Scalars
+;; Scalars
 
 (defun read-id ()
 		(read-integer *stream* `(unsigned-byte ,*int-size*)))
@@ -50,8 +56,8 @@
 (defun read-value ()
 	(read-float *stream* 'single-float))
 
-; sizes are single chars. 
-; Implicit maximum of 256 chars for strings and arrays
+;; sizes are single chars. 
+;; Implicit maximum of 256 chars for strings and arrays
 (defun read-size ()
 	(let ((buf (mk-buffer *B-char-size*))) 
 			(read-sequence buf *stream*)
@@ -66,7 +72,7 @@
 		(map 'string #'code-char buf)
 		))
 
-; Action
+;; Action
 
 (defun read-action ()
 	(cons 
@@ -79,7 +85,7 @@
 				(repeat-call #'read-action size)
 				))
 
-; Card
+;; Card
 
 (defun read-card ()
 	(cons (code-char (read-byte *stream*)) 
@@ -88,7 +94,7 @@
 (defun read-cards-n (n)
 	(repeat-call #'read-card n))
 
-; Player
+;; Player
 
 (defun read-player ()
 	(list (read-cstring) 
@@ -101,30 +107,35 @@
 		(repeat-call #'read-player size)))
 
 ; Read a hand from a stream
-(defun read-hand ()
-      ; hand-id
-			(list (read-id)
-			; small blind
-						(read-value)
-			; big blind
-						(read-value)
-			; actions preflop
-						(read-actions)
-			; actions flop
-						(read-actions)
-			; cards flop
-			       (read-cards-n 3)
-			; actions turn
-						 (read-actions)
-			; cards turn
-			       (read-cards-n 1)
-			; actions river
-			       (read-actions)
-			; cards river
-			       (read-cards-n 1)
-			; players
-			       (read-players))
-			)
+(defun read-hand (callback)
+	(funcall callback
+					 (list
+						    ; hand-id
+						     (read-id)
+           			; small blind
+								 (read-value)
+           			; big blind
+								 (read-value)
+           			; actions preflop
+								 (read-actions)
+           			; actions flop
+								 (read-actions)
+           			; cards flop
+								 (read-cards-n 3)
+           			; actions turn
+								 (read-actions)
+           			; cards turn
+								 (read-cards-n 1)
+           			; actions river
+								 (read-actions)
+			          ; cards river
+								 (read-cards-n 1)
+			          ; players
+								 (read-players))
+					 ))
+
+(defun parse-hand (hand)
+	(print '(a hand !)))
 
 ; Read a file, call read-hand until we reach the end of the file ...
 ; TODO Make this a lazy list?
@@ -144,7 +155,7 @@
 																				 ;(print (file-position *stream*))
 																				 (if (< (file-position *stream*) len)
 																						 (progn 
-																							 (read-hand)
+																							 (read-hand #'parse-hand)
 																							 (read-all))
 																					 nil)))
 												(read-all)
