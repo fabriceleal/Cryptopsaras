@@ -60,6 +60,9 @@
 	(cons (code-char (read-byte stream)) 
 				(code-char (read-byte stream))))
 
+(defun read-cards-n (stream n)
+	(repeat-call (lambda() (read-card stream)) n))
+
 (defun read-player (stream)
 	(list (read-cstring stream) 
 				(read-value stream)
@@ -84,15 +87,15 @@
 			; actions flop
 			(print (read-actions stream))
 			; cards flop
-			(print (repeat-call (lambda() (read-card stream)) 3))
+			(print (read-cards-n stream 3))
 			; actions turn
 			(print (read-actions stream))
 			; cards turn
-			(print (repeat-call (lambda() (read-card stream)) 1))
+			(print (read-cards-n stream 1))
 			; actions river
 			(print (read-actions stream))
 			; cards river
-			(print (repeat-call (lambda() (read-card stream)) 1))
+			(print (read-cards-n stream 1))
 			; players
 			(print (read-players stream))
 			))
