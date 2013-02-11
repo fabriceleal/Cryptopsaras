@@ -11,8 +11,11 @@
 (defparameter *actiontype-size* (* 8 4))
 (defparameter *card-size* (* *char-size* 2))
 
-; This is bad
+; This is bad ...
 (defvar *stream* nil)
+
+; ... this is so bad
+(defvar *res* nil)
 
 ; TODO endianess ?
 
@@ -178,7 +181,7 @@
 
 ; Read a hand from a stream
 (defun read-hand (callback)
-	(funcall callback (make-hand
+	(setf *res* (cons (funcall callback (make-hand
 						    ; hand-id
 										 (read-id)
            			; small blind
@@ -200,7 +203,8 @@
 			          ; cards river
 										 (read-cards-n 1)
 			          ; players
-										 (read-players) ) ) )
+										 (read-players) ) ) *res*) )
+				)
 
 (defun parse-hand (hand)
 	;(print
@@ -210,7 +214,8 @@
 	;(print
 	 ;(cdr (assoc 'cards (cdr (assoc 'flop hand))))
 	 ;)
-	(print hand)
+	;(print hand)
+	(gethash 'id hand)
 	)
 
 ; Read a file, call read-hand until we reach the end of the file ...
@@ -227,8 +232,8 @@
 										  ; to actually work we need to compile the
 										  ; read-file function. Check comment 1.b
 											(labels ((read-all ()
-																				 ;(print len)
-																				 ;(print (file-position *stream*))
+																				;(print len)
+																				;(print (file-position *stream*))
 																				 (if (< (file-position *stream*) len)
 																						 (progn
 																							 (read-hand #'parse-hand)
