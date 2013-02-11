@@ -203,7 +203,9 @@
 			          ; cards river
 										 (read-cards-n 1)
 			          ; players
-										 (read-players) ) ) *res*) )
+										 (read-players) ) ) 
+
+										*res*) )
 				)
 
 (defun parse-hand (hand)
@@ -215,7 +217,8 @@
 	 ;(cdr (assoc 'cards (cdr (assoc 'flop hand))))
 	 ;)
 	;(print hand)
-	(gethash 'id hand)
+	;(gethash 'id hand)
+	1
 	)
 
 ; Read a file, call read-hand until we reach the end of the file ...
@@ -238,7 +241,7 @@
 																						 (progn
 																							 (read-hand #'parse-hand)
 																							 (read-all))
-																					 nil)))
+																					 *res*)))
 												(read-all)
 												)
 										)))
@@ -250,6 +253,10 @@
 (compile 'read-file)
 
 (defun main()
-	(read-file "in/000.phb"))
+	(let ((result (read-file "in/000.phb")))
+		(with-open-file (out "out/000.sexp"
+													 :direction :output)
+										(print result out)
+										)))
 
 (main)
